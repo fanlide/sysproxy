@@ -12,27 +12,23 @@
 // You should have received a copy of the GNU General Public License
 // along with this program. If not, see <https://www.gnu.org/licenses/>.
 
-package system
+package cmd
 
 import (
 	"errors"
+	"os"
 	"os/exec"
 	"strings"
 )
 
-// GetNetworkInterface returns default interface name, not dev name.
+// GetNetworkInterface returns default interface dev name.
 func GetNetworkInterface() (string, error) {
-	c := exec.Command("sh", "-c", "networksetup -listnetworkserviceorder | grep -B 1 $(route -n get default | grep interface | awk '{print $2}') | head -n 1 | sed 's/.*) //'")
-	out, err := c.CombinedOutput()
-	if err != nil {
-		return "", errors.New(string(out) + err.Error())
-	}
-	return strings.TrimSpace(string(out)), nil
+	return "", nil
 }
 
 // GetDefaultGateway returns default gateway.
 func GetDefaultGateway() (string, error) {
-	c := exec.Command("sh", "-c", "route -n get default | grep gateway | awk '{print $2}'")
+	c := exec.Command("sh", "-c", "ip route | grep default | awk '{print $3}'")
 	out, err := c.CombinedOutput()
 	if err != nil {
 		return "", errors.New(string(out) + err.Error())
@@ -42,50 +38,39 @@ func GetDefaultGateway() (string, error) {
 
 // GetDNSServers used to get DNS servers.
 func GetDNSServers() ([]string, error) {
-	s, err := GetNetworkInterface()
-	if err != nil {
-		return nil, err
-	}
-	c := exec.Command("networksetup", "-getdnsservers", s)
+	c := exec.Command("sh", "-c", "cat /etc/resolv.conf | grep -Pv \"^#\" | grep nameserver | awk '{print $2}'")
 	out, err := c.CombinedOutput()
 	if err != nil {
 		return nil, errors.New(string(out) + err.Error())
 	}
-	if strings.Contains(string(out), "aren't") {
+	if strings.TrimSpace(string(out)) == "" {
 		return []string{}, nil
 	}
 	return strings.Split(strings.TrimSpace(string(out)), "\n"), nil
 }
 
-// SetDNSServers used to set DNS servers.
+// SetDNSServers used to set system DNS servers.
 func SetDNSServers(servers []string) error {
-	s, err := GetNetworkInterface()
+	f, err := os.OpenFile("/etc/resolv.conf", os.O_WRONLY|os.O_TRUNC|os.O_CREATE, 0644)
 	if err != nil {
 		return err
 	}
-	if len(servers) != 0 {
-		servers = append([]string{"-setdnsservers", s}, servers...)
-	} else {
-		servers = []string{"-setdnsservers", s, "empty"}
-	}
-	c := exec.Command("networksetup", servers...)
-	if out, err := c.CombinedOutput(); err != nil {
-		return errors.New(string(out) + err.Error())
+	defer f.Close()
+	for _, v := range servers {
+		if _, err := f.WriteString("nameserver " + v + "\n"); err != nil {
+			return err
+		}
 	}
 	return nil
 }
 
 // TurnOnSystemProxy used to enable system pac proxy, pac is a URL.
 func TurnOnSystemProxy(pac string) error {
-	s, err := GetNetworkInterface()
-	if err != nil {
-		return err
-	}
-	c := exec.Command("networksetup", "-setautoproxyurl", s, pac)
+	c := exec.Command("gsettings", "set", "org.gnome.system.proxy", "mode", "auto")
 	if out, err := c.CombinedOutput(); err != nil {
 		return errors.New(string(out) + err.Error())
 	}
-	c = exec.Command("networksetup", "-setautoproxystate", s, "on")
+	c = exec.Command("gsettings", "set", "org.gnome.system.proxy", "autoconfig-url", pac)
 	if out, err := c.CombinedOutput(); err != nil {
 		return errors.New(string(out) + err.Error())
 	}
@@ -94,11 +79,7 @@ func TurnOnSystemProxy(pac string) error {
 
 // TurnOffSystemProxy used to disable system pac proxy.
 func TurnOffSystemProxy() error {
-	s, err := GetNetworkInterface()
-	if err != nil {
-		return err
-	}
-	c := exec.Command("networksetup", "-setautoproxystate", s, "off")
+	c := exec.Command("gsettings", "set", "org.gnome.system.proxy", "mode", "none")
 	if out, err := c.CombinedOutput(); err != nil {
 		return errors.New(string(out) + err.Error())
 	}

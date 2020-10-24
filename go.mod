@@ -1,3 +1,3 @@
-module wenkang365t.cn/sysproxy
+module github.com/fanlide/sysproxy
 
 go 1.15
