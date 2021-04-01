@@ -3,7 +3,7 @@ package main
 import (
 	"flag"
 
-	"github.com/fanlide/sysproxy/cmd"
+	"github.com/mapleafgo/sysproxy"
 )
 
 func main() {
@@ -13,8 +13,8 @@ func main() {
 	flag.StringVar(&value, "l", "", "pac url")
 	flag.Parse()
 	if name == "open" {
-		cmd.TurnOnSystemProxy(value)
+		sysproxy.TurnOnSystemProxy(value)
 	} else if name == "close" {
-		cmd.TurnOffSystemProxy()
+		sysproxy.TurnOffSystemProxy()
 	}
 }

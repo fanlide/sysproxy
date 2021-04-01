@@ -1,3 +1,3 @@
-module github.com/fanlide/sysproxy
+module github.com/mapleafgo/sysproxy
 
-go 1.15
+go 1.16
